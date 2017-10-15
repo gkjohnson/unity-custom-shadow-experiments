@@ -3,18 +3,18 @@
     {
         _MainTex("Texture", 2D) = "white" {}
     }
+
     SubShader {
         Tags { "RenderType"="Opaque" }
 
         Pass
         {
-            Cull Off
-
             CGPROGRAM
+            #include "UnityCG.cginc"
             #pragma vertex vert
             #pragma fragment frag
 
-            #include "UnityCG.cginc"
+            sampler2D _MainTex;
 
             struct appdata
             {
@@ -28,8 +28,6 @@
                 float2 uv : TEXCOORD0;
             };
 
-            sampler2D _MainTex;
-
             v2f vert(appdata v)
             {
                 v2f o;
@@ -41,10 +39,7 @@
             fixed4 frag(v2f i) : SV_Target
             {
                 float4 col = tex2D(_MainTex, i.uv);
-                if (col.a < 0.5)
-                {
-                    discard;
-                }
+                if (col.a < 0.5) discard;
 
                 float depth = i.vertex.z;
                 return float4(depth, pow(depth,2), 0, 0);
