@@ -160,10 +160,11 @@
                 uv /= _ShadowTexScale.xy;
 
                 float shadowIntensity = 0;
+                float2 offset = lightSpaceNorm * _ShadowTexScale.w * 1;
+                float4 samp = tex2D(_ShadowTex, uv + offset);
 
 #ifdef HARD_SHADOWS
-                float2 offset = lightSpaceNorm * _ShadowTexScale.w * 1;
-                float sDepth = tex2D(_ShadowTex, uv + offset).r;
+                float sDepth = samp.r;
                 shadowIntensity = step(sDepth, depth - _ShadowTexScale.w);
 #endif
 #ifdef VARIANCE_SHADOWS
@@ -171,7 +172,7 @@
                 // https://www.gdcvault.com/play/1023808/Rendering-Antialiased-Shadows-with-Moment
                 // https://developer.nvidia.com/gpugems/GPUGems3/gpugems3_ch08.html
                 // The moments of the fragment live in "_shadowTex"
-                float2 s = tex2D(_ShadowTex, uv.xy).rg;
+                float2 s = samp.rg;
 
                 // average / expected depth and depth^2 across the texels
                 // E(x) and E(x^2)
@@ -200,8 +201,7 @@
                 shadowIntensity = 1 - max(p, p_max);
 #endif
 #ifdef MOMENT_SHADOWS
-                float4 val = tex2D(_ShadowTex, uv.xy);
-                shadowIntensity = ComputeMSMShadowIntensity(val, depth);
+                shadowIntensity = ComputeMSMShadowIntensity(samp, depth);
 #endif
                 color.xyz *= 1 - shadowIntensity * _MaxShadowIntensity;
                 color.xyz += UNITY_LIGHTMODEL_AMBIENT.xyz;
