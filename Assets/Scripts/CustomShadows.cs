@@ -1,13 +1,15 @@
 ﻿using UnityEngine;
 using System.Collections.Generic;
 
+[ExecuteInEditMode]
 public class CustomShadows : MonoBehaviour {
 
     public enum Shadows
     {
         NONE,
         HARD,
-        VARIANCE
+        VARIANCE,
+        // MOMENT
     }
 
     [Header("Initialization")]
@@ -32,22 +34,10 @@ public class CustomShadows : MonoBehaviour {
     RenderTexture _target;
 
     #region LifeCycle
-    private void Awake()
-    {
-        _depthShader = _depthShader ? _depthShader : Shader.Find("Hidden/CustomShadows/Depth");
-
-        // Create the shadow rendering camera
-        GameObject go = new GameObject("shadow cam");
-        _shadowCam = go.AddComponent<Camera>();
-        _shadowCam.orthographic = true;
-        _shadowCam.nearClipPlane = 0;
-        _shadowCam.enabled = false;
-        _shadowCam.backgroundColor = new Color(0, 0, 0, 0);
-        _shadowCam.clearFlags = CameraClearFlags.SolidColor;
-    }
-
     void Update ()
     {
+        _depthShader = _depthShader ? _depthShader : Shader.Find("Hidden/CustomShadows/Depth");
+        SetUpShadowCam();
         UpdateRenderTexture();
         UpdateShadowCameraPos();
         
@@ -72,10 +62,23 @@ public class CustomShadows : MonoBehaviour {
     // Disable the shadows
     void OnDisable()
     {
-        Destroy(_target);
-        Destroy(_backTarget);
-        _target = null;
-        _backTarget = null;
+        if (_shadowCam)
+        {
+            DestroyImmediate(_shadowCam.gameObject);
+            _shadowCam = null;
+        }
+
+        if (_target)
+        {
+            DestroyImmediate(_target);
+            _target = null;
+        }
+
+        if (_backTarget)
+        {
+            DestroyImmediate(_backTarget);
+            _backTarget = null;
+        }
 
         Shader.DisableKeyword("VARIANCE_SHADOWS");
         Shader.DisableKeyword("HARD_SHADOWS");
@@ -83,6 +86,22 @@ public class CustomShadows : MonoBehaviour {
     #endregion
 
     #region Update Functions
+    void SetUpShadowCam()
+    {
+        if (_shadowCam) return;
+
+        // Create the shadow rendering camera
+        GameObject go = new GameObject("shadow cam");
+        go.hideFlags = HideFlags.HideAndDontSave; 
+
+        _shadowCam = go.AddComponent<Camera>();
+        _shadowCam.orthographic = true;
+        _shadowCam.nearClipPlane = 0;
+        _shadowCam.enabled = false;
+        _shadowCam.backgroundColor = new Color(0, 0, 0, 0);
+        _shadowCam.clearFlags = CameraClearFlags.SolidColor;
+    }
+
     void UpdateShaderValues()
     {
         ForAllKeywords(s => Shader.DisableKeyword(ToKeyword(s)));
@@ -93,10 +112,13 @@ public class CustomShadows : MonoBehaviour {
         Shader.SetGlobalMatrix("_LightMatrix", _shadowCam.transform.worldToLocalMatrix);
         Shader.SetGlobalFloat("_MaxShadowIntensity", maxShadowIntensity);
 
+        // TODO: Generate a matrix that transforms between 0-1 instead
+        // of doing the extra math on the GPU
         Vector4 size = Vector4.zero;
         size.y = _shadowCam.orthographicSize * 2;
         size.x = _shadowCam.aspect * size.y;
         size.z = _shadowCam.farClipPlane;
+        size.w = 1.0f / _resolution;
         Shader.SetGlobalVector("_ShadowTexScale", size);
     }
 
@@ -105,7 +127,7 @@ public class CustomShadows : MonoBehaviour {
     {
         if (_target != null && _target.width != _resolution)
         {
-            Destroy(_target);
+            DestroyImmediate(_target);
             _target = null;
         }
 
@@ -148,6 +170,7 @@ public class CustomShadows : MonoBehaviour {
     {
         RenderTexture tg = new RenderTexture(_resolution, _resolution, 24, RenderTextureFormat.ARGBFloat);
         tg.filterMode = FilterMode.Bilinear;
+        tg.wrapMode = TextureWrapMode.Clamp;
         tg.enableRandomWrite = true;
         tg.Create();
 

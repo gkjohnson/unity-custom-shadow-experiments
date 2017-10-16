@@ -120,6 +120,7 @@
                 // SHADOWS
                 // get distance to lightPos
                 float4 lightSpacePos = mul(_LightMatrix, i.wPos);
+                float3 lightSpaceNorm = normalize(mul(_LightMatrix, mul(unity_ObjectToWorld, i.normal)));
                 float depth = lightSpacePos.z / _ShadowTexScale.z;
 
                 float2 uv = lightSpacePos.xy;
@@ -129,8 +130,9 @@
                 float shadowIntensity = 0;
 
 #ifdef HARD_SHADOWS
-                float sDepth = tex2D(_ShadowTex, uv.xy).r;
-                if (sDepth < depth - 0.005) shadowIntensity = 1;
+                float2 offset = lightSpaceNorm * _ShadowTexScale.w * 1;
+                float sDepth = tex2D(_ShadowTex, uv + offset).r;
+                if (sDepth < depth - _ShadowTexScale.w) shadowIntensity = 1;
 #endif
 #ifdef VARIANCE_SHADOWS
 
