@@ -132,7 +132,7 @@
 #ifdef HARD_SHADOWS
                 float2 offset = lightSpaceNorm * _ShadowTexScale.w * 1;
                 float sDepth = tex2D(_ShadowTex, uv + offset).r;
-                if (sDepth < depth - _ShadowTexScale.w) shadowIntensity = 1;
+                shadowIntensity = step(sDepth, depth - _ShadowTexScale.w);
 #endif
 #ifdef VARIANCE_SHADOWS
 
