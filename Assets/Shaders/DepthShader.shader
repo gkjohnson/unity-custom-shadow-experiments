@@ -41,7 +41,7 @@
                 float4 col = tex2D(_MainTex, i.uv);
                 if (col.a < 0.5) discard;
 
-                float depth = i.vertex.z;
+                float depth = 1 - i.vertex.z;
                 return float4(depth, pow(depth,2), 0, 0);
             }
             ENDCG

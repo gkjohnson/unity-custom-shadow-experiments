@@ -5,7 +5,7 @@ public class CustomShadows : MonoBehaviour {
 
     public enum Shadows
     {
-        NONE, PCF, MV, HARD
+        NONE, VARIANCE, HARD
     }
 
     public Shader _depthShader;
@@ -14,16 +14,15 @@ public class CustomShadows : MonoBehaviour {
     Camera _shadowCam;
     public RenderTexture _colorTarget;
     public RenderTexture _backColorTarget;
-    public RenderTexture _shadowMapTexture;
 
     public int _iterations = 1;
     public ComputeShader _blur;
 
-    public Shadows _shadowType = Shadows.PCF;
+    public Shadows _shadowType = Shadows.HARD;
 
     private void Awake()
     {
-        _depthShader = _depthShader ?? Shader.Find("Hidden/CustomShadows/Depth");
+        _depthShader = _depthShader ? _depthShader : Shader.Find("Hidden/CustomShadows/Depth");
 
         // A regular render texture
         _colorTarget = new RenderTexture(_resolution, _resolution, 24, RenderTextureFormat.RGFloat);
@@ -32,16 +31,10 @@ public class CustomShadows : MonoBehaviour {
         _colorTarget.Create();
 
         // Make a backbuffer version of it for MVM blur
-        _backColorTarget = new RenderTexture(_resolution, _resolution, 0, RenderTextureFormat.RGFloat);
+        _backColorTarget = new RenderTexture(_resolution, _resolution, 24, RenderTextureFormat.RGFloat);
         _backColorTarget.filterMode = FilterMode.Bilinear;
         _backColorTarget.enableRandomWrite = true;
         _backColorTarget.Create();
-
-        // Make a "shadowmap" version so it can be sampled
-        _shadowMapTexture = new RenderTexture(_resolution, _resolution, 24, RenderTextureFormat.Shadowmap);
-        _shadowMapTexture.filterMode = FilterMode.Bilinear;
-        _shadowMapTexture.enableRandomWrite = true;
-        _shadowMapTexture.Create();
 
         // Create the shadow rendering camera
         GameObject go = new GameObject("shadow cam");
@@ -67,33 +60,22 @@ public class CustomShadows : MonoBehaviour {
         RenderTexture target = null;
         if(_shadowType == Shadows.NONE)
         {
-            Shader.DisableKeyword("MV_SHADOWS");
-            Shader.DisableKeyword("PCF_SHADOWS");
+            Shader.DisableKeyword("VARIANCE_SHADOWS");
             Shader.DisableKeyword("HARD_SHADOWS");
-        }
-        else if( _shadowType == Shadows.PCF)
-        {
-            target = _shadowMapTexture;
-            Shader.DisableKeyword("MV_SHADOWS");
-            Shader.DisableKeyword("HARD_SHADOWS");
-
-            Shader.EnableKeyword("PCF_SHADOWS");
         }
         else if( _shadowType == Shadows.HARD)
         {
             target = _colorTarget;
-            Shader.DisableKeyword("MV_SHADOWS");
-            Shader.DisableKeyword("PCF_SHADOWS");
+            Shader.DisableKeyword("VARIANCE_SHADOWS");
 
             Shader.EnableKeyword("HARD_SHADOWS");
         }
-        else if ( _shadowType == Shadows.MV)
+        else if ( _shadowType == Shadows.VARIANCE)
         {
             target = _colorTarget;
-            Shader.DisableKeyword("PCF_SHADOWS");
             Shader.DisableKeyword("HARD_SHADOWS");
 
-            Shader.EnableKeyword("MV_SHADOWS");
+            Shader.EnableKeyword("VARIANCE_SHADOWS");
         }
 
         if (target == null)
@@ -104,7 +86,7 @@ public class CustomShadows : MonoBehaviour {
         _shadowCam.targetTexture = target;
         _shadowCam.RenderWithShader(_depthShader, "");
 
-        if (_shadowType == Shadows.MV)
+        if (_shadowType == Shadows.VARIANCE)
         {
             // Blur the textures, swapping the buffers for MVM shadows
             RenderTexture toBlur = _colorTarget;
@@ -201,8 +183,7 @@ public class CustomShadows : MonoBehaviour {
     // Disable the shadows
     void OnDisable()
     {
-        Shader.DisableKeyword("MV_SHADOWS");
-        Shader.DisableKeyword("PCF_SHADOWS");
+        Shader.DisableKeyword("VARIANCE_SHADOWS");
         Shader.DisableKeyword("HARD_SHADOWS");
     }
 
