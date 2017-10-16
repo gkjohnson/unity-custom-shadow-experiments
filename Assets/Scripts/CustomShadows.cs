@@ -5,7 +5,9 @@ public class CustomShadows : MonoBehaviour {
 
     public enum Shadows
     {
-        NONE, VARIANCE, HARD
+        NONE,
+        HARD,
+        VARIANCE
     }
 
     [Header("Initialization")]
@@ -23,28 +25,15 @@ public class CustomShadows : MonoBehaviour {
     public float maxShadowIntensity = 1;
     public Shadows _shadowType = Shadows.HARD;
 
-
-
     // Render Targets
     Camera _shadowCam;
-    RenderTexture _colorTarget;
-    RenderTexture _backColorTarget;
+    RenderTexture _backTarget;
+    RenderTexture _target;
 
+    #region LifeCycle
     private void Awake()
     {
         _depthShader = _depthShader ? _depthShader : Shader.Find("Hidden/CustomShadows/Depth");
-
-        // A regular render texture
-        _colorTarget = new RenderTexture(_resolution, _resolution, 24, RenderTextureFormat.RGFloat);
-        _colorTarget.filterMode = FilterMode.Bilinear;
-        _colorTarget.enableRandomWrite = true;
-        _colorTarget.Create();
-
-        // Make a backbuffer version of it for MVM blur
-        _backColorTarget = new RenderTexture(_resolution, _resolution, 24, RenderTextureFormat.RGFloat);
-        _backColorTarget.filterMode = FilterMode.Bilinear;
-        _backColorTarget.enableRandomWrite = true;
-        _backColorTarget.Create();
 
         // Create the shadow rendering camera
         GameObject go = new GameObject("shadow cam");
@@ -55,93 +44,126 @@ public class CustomShadows : MonoBehaviour {
         _shadowCam.backgroundColor = new Color(0, 0, 0, 0);
         _shadowCam.clearFlags = CameraClearFlags.SolidColor;
     }
-    
 
     void Update ()
     {
-        // Grab the light and render the scene
-        Light l = FindObjectOfType<Light>();
-        _shadowCam.transform.position = l.transform.position;
-        _shadowCam.transform.rotation = l.transform.rotation;
-        _shadowCam.transform.LookAt(_shadowCam.transform.position + _shadowCam.transform.forward, _shadowCam.transform.up);
-        UpdateShadowCamera();
-
-
-        RenderTexture target = null;
-        if(_shadowType == Shadows.NONE)
-        {
-            Shader.DisableKeyword("VARIANCE_SHADOWS");
-            Shader.DisableKeyword("HARD_SHADOWS");
-        }
-        else if( _shadowType == Shadows.HARD)
-        {
-            target = _colorTarget;
-            Shader.DisableKeyword("VARIANCE_SHADOWS");
-
-            Shader.EnableKeyword("HARD_SHADOWS");
-        }
-        else if ( _shadowType == Shadows.VARIANCE)
-        {
-            target = _colorTarget;
-            Shader.DisableKeyword("HARD_SHADOWS");
-
-            Shader.EnableKeyword("VARIANCE_SHADOWS");
-        }
-
-        if (target == null)
-        {
-            return;
-        }
-
-        _shadowCam.targetTexture = target;
+        UpdateRenderTexture();
+        UpdateShadowCameraPos();
+        
+        _shadowCam.targetTexture = _target;
         _shadowCam.RenderWithShader(_depthShader, "");
 
         if (_shadowType == Shadows.VARIANCE)
         {
-            // Blur the textures, swapping the buffers for MVM shadows
-            RenderTexture toBlur = _colorTarget;
-            RenderTexture backBlur = _backColorTarget;
             for (int i = 0; i < blurIterations; i++)
             {
-                _blur.SetTexture(0, "Read", toBlur);
-                _blur.SetTexture(0, "Result", backBlur);
-                _blur.Dispatch(0, _colorTarget.width / 8, _colorTarget.height / 8, 1);
+                _blur.SetTexture(0, "Read", _target);
+                _blur.SetTexture(0, "Result", _backTarget);
+                _blur.Dispatch(0, _target.width / 8, _target.height / 8, 1);
 
-                RenderTexture temp = toBlur;
-                toBlur = backBlur;
-                backBlur = temp;
+                Swap(ref _backTarget, ref _target);
             }
-            target = backBlur;
         }
 
+        UpdateShaderValues();
+    }
+
+    // Disable the shadows
+    void OnDisable()
+    {
+        Destroy(_target);
+        Destroy(_backTarget);
+        _target = null;
+        _backTarget = null;
+
+        Shader.DisableKeyword("VARIANCE_SHADOWS");
+        Shader.DisableKeyword("HARD_SHADOWS");
+    }
+    #endregion
+
+    #region Update Functions
+    void UpdateShaderValues()
+    {
+        ForAllKeywords(s => Shader.DisableKeyword(ToKeyword(s)));
+        Shader.EnableKeyword(ToKeyword(_shadowType));
+
         // Set the qualities of the textures
-        Shader.SetGlobalTexture("_ShadowTex", target);
+        Shader.SetGlobalTexture("_ShadowTex", _target);
         Shader.SetGlobalMatrix("_LightMatrix", _shadowCam.transform.worldToLocalMatrix);
+        Shader.SetGlobalFloat("_MaxShadowIntensity", maxShadowIntensity);
 
         Vector4 size = Vector4.zero;
         size.y = _shadowCam.orthographicSize * 2;
         size.x = _shadowCam.aspect * size.y;
         size.z = _shadowCam.farClipPlane;
         Shader.SetGlobalVector("_ShadowTexScale", size);
-        Shader.SetGlobalFloat("_MaxShadowIntensity", maxShadowIntensity);
+    }
+
+    // Refresh the render target if the scale has changed
+    void UpdateRenderTexture()
+    {
+        if (_target != null && _target.width != _resolution)
+        {
+            Destroy(_target);
+            _target = null;
+        }
+
+        if (_target == null)
+        {
+            _target = CreateTarget();
+            _backTarget = CreateTarget();
+        }
     }
 
     // Update the camera view to encompass the geometry it will draw
-    void UpdateShadowCamera()
+    void UpdateShadowCameraPos()
     {
+        // Update the position
+        Camera cam = _shadowCam;
+        Light l = FindObjectOfType<Light>();
+        cam.transform.position = l.transform.position;
+        cam.transform.rotation = l.transform.rotation;
+        cam.transform.LookAt(cam.transform.position + cam.transform.forward, cam.transform.up);
+
         Vector3 center, extents;
         List<Renderer> renderers = new List<Renderer>();
         renderers.AddRange(FindObjectsOfType<Renderer>());
 
-        GetRenderersExtents(renderers, _shadowCam.transform, out center, out extents);
+        GetRenderersExtents(renderers, cam.transform, out center, out extents);
 
         center.z -= extents.z / 2;
-        _shadowCam.transform.position = _shadowCam.transform.TransformPoint(center);
-        _shadowCam.nearClipPlane = 0;
-        _shadowCam.farClipPlane = extents.z;
+        cam.transform.position = cam.transform.TransformPoint(center);
+        cam.nearClipPlane = 0;
+        cam.farClipPlane = extents.z;
 
-        _shadowCam.aspect = extents.x / extents.y;
-        _shadowCam.orthographicSize = extents.y / 2;
+        cam.aspect = extents.x / extents.y;
+        cam.orthographicSize = extents.y / 2;
+    }
+    #endregion
+
+    #region Utilities
+    // Creates a rendertarget
+    RenderTexture CreateTarget()
+    {
+        RenderTexture tg = new RenderTexture(_resolution, _resolution, 24, RenderTextureFormat.ARGBFloat);
+        tg.filterMode = FilterMode.Bilinear;
+        tg.enableRandomWrite = true;
+        tg.Create();
+
+        return tg;
+    }
+
+    void ForAllKeywords(System.Action<Shadows> func)
+    {
+        func(Shadows.HARD);
+        func(Shadows.VARIANCE);
+    }
+
+    string ToKeyword(Shadows en)
+    {
+        if (en == Shadows.HARD) return "HARD_SHADOWS";
+        if (en == Shadows.VARIANCE) return "VARIANCE_SHADOWS";
+        return "";
     }
 
     // Returns the bounds extents in the provided frame
@@ -191,12 +213,12 @@ public class CustomShadows : MonoBehaviour {
                 }
     }
 
-    // Disable the shadows
-    void OnDisable()
+    // Swap Elements A and B
+    void Swap<T>(ref T a, ref T b)
     {
-        Shader.DisableKeyword("VARIANCE_SHADOWS");
-        Shader.DisableKeyword("HARD_SHADOWS");
+        T temp = a;
+        a = b;
+        b = temp;
     }
-
-    void OnDestroy() { OnDisable(); }
+    #endregion
 }

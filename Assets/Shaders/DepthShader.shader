@@ -42,7 +42,7 @@
                 if (col.a < 0.5) discard;
 
                 float depth = 1 - i.vertex.z;
-                return float4(depth, pow(depth,2), 0, 0);
+                return float4(depth, pow(depth, 2), pow(depth, 3), pow(depth, 4));
             }
             ENDCG
         }
