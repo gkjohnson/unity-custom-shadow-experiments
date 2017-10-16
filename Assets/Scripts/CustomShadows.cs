@@ -8,17 +8,27 @@ public class CustomShadows : MonoBehaviour {
         NONE, VARIANCE, HARD
     }
 
-    public Shader _depthShader;
-    public int _resolution = 1024;
-    
-    Camera _shadowCam;
-    public RenderTexture _colorTarget;
-    public RenderTexture _backColorTarget;
+    [Header("Initialization")]
+    [SerializeField]
+    Shader _depthShader;
 
-    public int _iterations = 1;
-    public ComputeShader _blur;
+    [SerializeField]
+    int _resolution = 1024;
 
+    [SerializeField]
+    ComputeShader _blur;
+
+    [Header("Shadow Settings")]
+    public int blurIterations = 1;
+    public float maxShadowIntensity = 1;
     public Shadows _shadowType = Shadows.HARD;
+
+
+
+    // Render Targets
+    Camera _shadowCam;
+    RenderTexture _colorTarget;
+    RenderTexture _backColorTarget;
 
     private void Awake()
     {
@@ -91,7 +101,7 @@ public class CustomShadows : MonoBehaviour {
             // Blur the textures, swapping the buffers for MVM shadows
             RenderTexture toBlur = _colorTarget;
             RenderTexture backBlur = _backColorTarget;
-            for (int i = 0; i < _iterations; i++)
+            for (int i = 0; i < blurIterations; i++)
             {
                 _blur.SetTexture(0, "Read", toBlur);
                 _blur.SetTexture(0, "Result", backBlur);
@@ -113,6 +123,7 @@ public class CustomShadows : MonoBehaviour {
         size.x = _shadowCam.aspect * size.y;
         size.z = _shadowCam.farClipPlane;
         Shader.SetGlobalVector("_ShadowTexScale", size);
+        Shader.SetGlobalFloat("_MaxShadowIntensity", maxShadowIntensity);
     }
 
     // Update the camera view to encompass the geometry it will draw

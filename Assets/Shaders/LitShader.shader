@@ -1,4 +1,4 @@
-﻿Shader "Garrett/Test Shader" {
+﻿Shader "CustomShadows/Shadowed" {
     Properties
     {
         _Color ("Main Color", Color) = (1,1,1,1)
@@ -16,11 +16,14 @@
             #pragma multi_compile _ VARIANCE_SHADOWS PCF_SHADOWS HARD_SHADOWS
         
             float4 _Color;
-#if HARD_SHADOWS || VARIANCE_SHADOWS
+
+            // Shadow Map info
             sampler2D _ShadowTex;
-#endif
             float4x4 _LightMatrix;
             float4 _ShadowTexScale;
+
+            // Shadow Variables
+            float _MaxShadowIntensity;
 
             float3 CTIllum(float4 wVertex, float3 normal)
             {
@@ -109,13 +112,10 @@
 
             fixed4 frag (v2f i) : COLOR
 			{
-                float4 vCol = 1;
-
                 // COLOR
                 // modulate with lighting
-                float4 c = i.color;
-                c = float4(CTIllum(i.wPos, i.normal), 1);
-                c.xyz += lerp(UNITY_LIGHTMODEL_AMBIENT.xyz, UNITY_LIGHTMODEL_AMBIENT.xyz * _Color, 1);
+                float4 color = i.color;
+                color = float4(CTIllum(i.wPos, i.normal), 1);
 
                 // SHADOWS
                 // get distance to lightPos
@@ -130,9 +130,7 @@
 
 #ifdef HARD_SHADOWS
                 float sDepth = tex2D(_ShadowTex, uv.xy).r;
-                if (sDepth > depth - 0.005) shadowIntensity = 1;
-                else shadowIntensity = 0.5;
-                c *= shadowIntensity;
+                if (sDepth < depth - 0.005) shadowIntensity = 1;
 #endif
 #ifdef VARIANCE_SHADOWS
 
@@ -165,18 +163,12 @@
                 float amount = 0.0;
                 p_max = clamp( (p_max - amount) / (1 - amount), 0, 1);
 
-                // Apply the shadows by grabbing the largest of the ps
-                float4 shadowColor = float4(1, 1, 1, 1) * max(p, p_max);
-                shadowColor.xyz += UNITY_LIGHTMODEL_AMBIENT.xyz;
-                shadowColor.a = 1;
-
-                c = min(c, shadowColor);
+                shadowIntensity = 1 - max(p, p_max);
 #endif
+                color.xyz *= 1 - shadowIntensity * _MaxShadowIntensity;
+                color.xyz += UNITY_LIGHTMODEL_AMBIENT.xyz;
 
-                // write the depth into the alpha channel for other users
-                c.a = i.depth;
-                c.xyz *= vCol.r;
-                return c;
+                return color;
 
             }
             ENDCG
