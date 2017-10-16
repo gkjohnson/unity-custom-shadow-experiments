@@ -22,6 +22,7 @@ public class CustomShadows : MonoBehaviour {
 
     [Header("Shadow Settings")]
     public int blurIterations = 1;
+    [Range(0, 1)]
     public float maxShadowIntensity = 1;
     public Shadows _shadowType = Shadows.HARD;
 
