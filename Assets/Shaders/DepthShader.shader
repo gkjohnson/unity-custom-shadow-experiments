@@ -41,9 +41,9 @@
                 float4 col = tex2D(_MainTex, i.uv);
                 if (col.a < 0.5) discard;
 
-                // TODO: Pack the data to avoid precision issues
+                // TODO: Understand why depth is reversed
                 float depth = 1 - i.vertex.z;
-                return float4(depth, pow(depth, 2), pow(depth, 3), pow(depth, 4));
+                return float4(depth, pow(depth, 2), 0, 0);
             }
             ENDCG
         }

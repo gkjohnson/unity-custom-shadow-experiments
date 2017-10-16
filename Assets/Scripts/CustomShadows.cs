@@ -8,8 +8,7 @@ public class CustomShadows : MonoBehaviour {
     {
         NONE,
         HARD,
-        VARIANCE,
-        MOMENT
+        VARIANCE
     }
 
     [Header("Initialization")]
@@ -46,7 +45,7 @@ public class CustomShadows : MonoBehaviour {
         _shadowCam.targetTexture = _target;
         _shadowCam.RenderWithShader(_depthShader, "");
 
-        if (_shadowType == Shadows.VARIANCE || _shadowType == Shadows.MOMENT)
+        if (_shadowType == Shadows.VARIANCE)
         {
             for (int i = 0; i < blurIterations; i++)
             {
@@ -169,7 +168,7 @@ public class CustomShadows : MonoBehaviour {
     // Creates a rendertarget
     RenderTexture CreateTarget()
     {
-        RenderTexture tg = new RenderTexture(_resolution, _resolution, 24, RenderTextureFormat.ARGBFloat);
+        RenderTexture tg = new RenderTexture(_resolution, _resolution, 24, RenderTextureFormat.RGFloat);
         tg.filterMode = FilterMode.Bilinear;
         tg.wrapMode = TextureWrapMode.Clamp;
         tg.enableRandomWrite = true;
@@ -182,14 +181,12 @@ public class CustomShadows : MonoBehaviour {
     {
         func(Shadows.HARD);
         func(Shadows.VARIANCE);
-        func(Shadows.MOMENT);
     }
 
     string ToKeyword(Shadows en)
     {
         if (en == Shadows.HARD) return "HARD_SHADOWS";
         if (en == Shadows.VARIANCE) return "VARIANCE_SHADOWS";
-        if (en == Shadows.MOMENT) return "MOMENT_SHADOWS";
         return "";
     }
 
