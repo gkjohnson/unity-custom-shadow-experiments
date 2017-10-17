@@ -24,6 +24,7 @@
 
             // Shadow Variables
             float _MaxShadowIntensity;
+            float _VarianceShadowExpansion;
 
             float3 CTIllum(float4 wVertex, float3 normal)
             {
@@ -195,7 +196,7 @@
                 float p_max = var / (var + delta*delta);
 
                 // To alleviate the light bleeding, expand the shadows to fill in the gaps
-                float amount = 0.3;
+                float amount = _VarianceShadowExpansion;
                 p_max = clamp( (p_max - amount) / (1 - amount), 0, 1);
 
                 shadowIntensity = 1 - max(p, p_max);

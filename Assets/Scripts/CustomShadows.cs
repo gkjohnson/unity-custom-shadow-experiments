@@ -27,6 +27,9 @@ public class CustomShadows : MonoBehaviour {
 
     [Range(0, 1)]
     public float maxShadowIntensity = 1;
+
+    [Range(0, 1)]
+    public float varianceShadowExpansion = 0.3f;
     public Shadows _shadowType = Shadows.HARD;
 
     // Render Targets
@@ -111,6 +114,7 @@ public class CustomShadows : MonoBehaviour {
         Shader.SetGlobalTexture("_ShadowTex", _target);
         Shader.SetGlobalMatrix("_LightMatrix", _shadowCam.transform.worldToLocalMatrix);
         Shader.SetGlobalFloat("_MaxShadowIntensity", maxShadowIntensity);
+        Shader.SetGlobalFloat("_VarianceShadowExpansion", varianceShadowExpansion);
 
         // TODO: Generate a matrix that transforms between 0-1 instead
         // of doing the extra math on the GPU
