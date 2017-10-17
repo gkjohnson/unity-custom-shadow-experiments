@@ -2,12 +2,16 @@
     Properties
     {
         _Color ("Main Color", Color) = (1,1,1,1)
+        _ZWrite ("ZWrite", Float) = 1
+
 	}
     SubShader {
-        Tags { "RenderType"="Opaque" }
+        Tags { "RenderType" = "Opaque" }
 
         Pass {
             Lighting On
+            Blend SrcAlpha OneMinusSrcAlpha
+            ZWrite[_ZWrite]
         
             CGPROGRAM
             #include "UnityCG.cginc"
@@ -24,6 +28,7 @@
 
             // Shadow Variables
             float _MaxShadowIntensity;
+            int _DrawTransparentGeometry;
             float _VarianceShadowExpansion;
 
             float3 CTIllum(float4 wVertex, float3 normal)
@@ -124,7 +129,6 @@
 
             struct v2f
             {
-                fixed4 color : COLOR0;
                 float4 pos : SV_POSITION;
 				float4 wPos : TEXCOORD0;
                 float3 normal : TEXCOORD1;
@@ -135,7 +139,6 @@
             {
                 v2f o;
                 o.pos = UnityObjectToClipPos(v.vertex);
-                o.color = float4(1, 1, 1, 1);
                 o.wPos = mul(unity_ObjectToWorld, v.vertex);
                 o.normal = v.normal;
 
@@ -147,8 +150,8 @@
 			{
                 // COLOR
                 // modulate with lighting
-                float4 color = i.color;
-                color = float4(CTIllum(i.wPos, i.normal), 1);
+                float4 color = _Color;
+                color = float4(CTIllum(i.wPos, i.normal), color.a);
 
                 // SHADOWS
                 // get distance to lightPos
@@ -161,7 +164,7 @@
                 uv /= _ShadowTexScale.xy;
 
                 float shadowIntensity = 0;
-                float2 offset = lightSpaceNorm * _ShadowTexScale.w * 1;
+                float2 offset = lightSpaceNorm * _ShadowTexScale.w;
                 float4 samp = tex2D(_ShadowTex, uv + offset);
 
 #ifdef HARD_SHADOWS

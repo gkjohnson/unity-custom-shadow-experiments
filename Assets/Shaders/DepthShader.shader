@@ -1,6 +1,7 @@
 ﻿Shader "Hidden/CustomShadows/Depth" {
     Properties
     {
+        _Color("Main Color", Color) = (1,1,1,1)
         _MainTex("Texture", 2D) = "white" {}
     }
 
@@ -11,10 +12,13 @@
         {
             CGPROGRAM
             #include "UnityCG.cginc"
+            #include "../Addons/Dither Functions.cginc"
             #pragma vertex vert
             #pragma fragment frag
+            #pragma multi_compile _ DRAW_TRANSPARENT_SHADOWS
 
             sampler2D _MainTex;
+            float4 _Color;
 
             struct appdata
             {
@@ -38,8 +42,12 @@
 
             fixed4 frag(v2f i) : SV_Target
             {
-                float4 col = tex2D(_MainTex, i.uv);
+                float4 col = _Color;
+                #if defined(DRAW_TRANSPARENT_SHADOWS)
+                ditherClip(i.vertex, col.a);
+                #else
                 if (col.a < 0.5) discard;
+                #endif
 
                 // TODO: Understand why depth is reversed
                 float depth = 1 - i.vertex.z;

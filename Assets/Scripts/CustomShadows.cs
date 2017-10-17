@@ -27,10 +27,12 @@ public class CustomShadows : MonoBehaviour {
 
     [Range(0, 1)]
     public float maxShadowIntensity = 1;
+    public bool drawTransparent = true;
 
     [Range(0, 1)]
     public float varianceShadowExpansion = 0.3f;
     public Shadows _shadowType = Shadows.HARD;
+    public FilterMode _filterMode = FilterMode.Bilinear;
 
     // Render Targets
     Camera _shadowCam;
@@ -68,7 +70,7 @@ public class CustomShadows : MonoBehaviour {
     {
         if (_shadowCam)
         {
-            DestroyImmediate(_shadowCam.gameObject);
+            DestroyImmediate(_shadowCam.gameObject); 
             _shadowCam = null;
         }
 
@@ -86,6 +88,11 @@ public class CustomShadows : MonoBehaviour {
 
         ForAllKeywords(s => Shader.DisableKeyword(ToKeyword(s)));
     }
+
+    private void OnDestroy()
+    {
+        OnDisable();
+    }
     #endregion
 
     #region Update Functions
@@ -95,7 +102,8 @@ public class CustomShadows : MonoBehaviour {
 
         // Create the shadow rendering camera
         GameObject go = new GameObject("shadow cam");
-        go.hideFlags = HideFlags.HideAndDontSave; 
+        //go.hideFlags = HideFlags.HideAndDontSave; 
+        go.hideFlags = HideFlags.DontSave; 
 
         _shadowCam = go.AddComponent<Camera>();
         _shadowCam.orthographic = true;
@@ -116,6 +124,9 @@ public class CustomShadows : MonoBehaviour {
         Shader.SetGlobalFloat("_MaxShadowIntensity", maxShadowIntensity);
         Shader.SetGlobalFloat("_VarianceShadowExpansion", varianceShadowExpansion);
 
+        if(drawTransparent) Shader.EnableKeyword("DRAW_TRANSPARENT_SHADOWS");
+        else Shader.DisableKeyword("DRAW_TRANSPARENT_SHADOWS");
+        
         // TODO: Generate a matrix that transforms between 0-1 instead
         // of doing the extra math on the GPU
         Vector4 size = Vector4.zero;
@@ -129,7 +140,7 @@ public class CustomShadows : MonoBehaviour {
     // Refresh the render target if the scale has changed
     void UpdateRenderTexture()
     {
-        if (_target != null && _target.width != _resolution)
+        if (_target != null && (_target.width != _resolution || _target.filterMode!= _filterMode))
         {
             DestroyImmediate(_target);
             _target = null;
@@ -173,7 +184,7 @@ public class CustomShadows : MonoBehaviour {
     RenderTexture CreateTarget()
     {
         RenderTexture tg = new RenderTexture(_resolution, _resolution, 24, RenderTextureFormat.RGFloat);
-        tg.filterMode = FilterMode.Bilinear;
+        tg.filterMode = _filterMode;
         tg.wrapMode = TextureWrapMode.Clamp;
         tg.enableRandomWrite = true;
         tg.Create();
